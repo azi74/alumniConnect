@@ -9,6 +9,9 @@ import Footer from '@/components/Footer';
 
 const Index = () => {
   useEffect(() => {
+    document.title = "AlumniConnect";
+  }, []);
+  useEffect(() => {
     // Animation for elements when they enter the viewport
     const observer = new IntersectionObserver(
       (entries) => {
