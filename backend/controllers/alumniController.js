@@ -50,16 +50,17 @@ exports.updateAlumniProfile = asyncHandler(async (req, res, next) => {
     bio,
     skills,
     education,
-    experience,
-    socialLinks
+    workExperience,
+    socialLinks,
+    profileComplete
   } = req.body;
 
-  // Calculate profile completion
+  // Calculate profile completion based on required fields
   const requiredFields = ['graduationYear', 'degree', 'currentRole'];
   const completedFields = requiredFields.filter(field => req.body[field]);
-  const completionPercentage = (completedFields.length / requiredFields.length) * 100;
+  const calculatedCompletion = (completedFields.length / requiredFields.length) * 100;
 
-  const profileData = {
+  const updateData = {
     graduationYear,
     degree,
     currentRole,
@@ -69,24 +70,47 @@ exports.updateAlumniProfile = asyncHandler(async (req, res, next) => {
     bio,
     skills: Array.isArray(skills) ? skills : [],
     education: Array.isArray(education) ? education : [],
-    experience: Array.isArray(experience) ? experience : [],
+    workExperience: Array.isArray(workExperience) ? workExperience : [],
     socialLinks: socialLinks || {},
-    profileComplete: completionPercentage === 100
+    profileComplete: calculatedCompletion === 100
   };
 
-  let alumni = await Alumni.findOneAndUpdate(
-    { user: req.user.id },
-    profileData,
-    { 
-      new: true,
-      upsert: true, // Create if doesn't exist
-      runValidators: true 
-    }
-  ).populate('user', 'name email profilePhoto role');
+  // Update both User and AlumniProfile
+  const [user, alumni] = await Promise.all([
+    User.findByIdAndUpdate(
+      req.user.id,
+      {
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        bio: req.body.bio,
+        socialLinks: req.body.socialLinks,
+        profileComplete: calculatedCompletion === 100
+      },
+      { new: true }
+    ),
+    
+    AlumniProfile.findOneAndUpdate(
+      { user: req.user.id },
+      updateData,
+      { new: true, upsert: true }
+    )
+  ]);
+
+  if (!alumni || !user) {
+    return next(new ErrorResponse('Profile update failed', 400));
+  }
 
   res.status(200).json({
     success: true,
-    data: alumni
+    data: {
+      ...alumni.toObject(),
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      profilePhoto: user.profilePhoto,
+      role: user.role
+    }
   });
 });
 

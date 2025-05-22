@@ -246,6 +246,13 @@ const getMe = asyncHandler(async (req, res) => {
     }
 
     let profile = {};
+
+    if (user.role === 'alumni') {
+      profile = await AlumniProfile.findOne({ user: user._id })
+        .select('-__v -createdAt -updatedAt')
+        .lean();
+    }
+
     if (user.role === 'student') {
       profile = await StudentProfile.findOne({ user: user._id })
         .select('-__v -createdAt -updatedAt')
@@ -273,6 +280,33 @@ const getMe = asyncHandler(async (req, res) => {
 
 // @desc    Update user profile
 const updateProfile = asyncHandler(async (req, res) => {
+  const { role } = req.user;
+  
+  // For alumni, we only update basic user fields
+  if (role === 'alumni') {
+    const allowedFields = [
+      'name', 'email', 'phone', 'bio', 'socialLinks', 'profilePhoto'
+    ];
+    
+    const fieldsToUpdate = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        fieldsToUpdate[field] = req.body[field];
+      }
+    });
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      fieldsToUpdate, 
+      { new: true, runValidators: true }
+    ).select('-password -resetPasswordToken -resetPasswordExpire');
+
+    return res.status(200).json({
+      success: true,
+      user
+    });
+  }
+
   const allowedFields = [
     'name', 'email', 'phone', 'address', 'bio', 
     'interests', 'socialLinks', 'profileComplete'

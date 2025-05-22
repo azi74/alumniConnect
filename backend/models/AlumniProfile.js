@@ -39,7 +39,7 @@ const alumniSchema = new mongoose.Schema({
     year: String,
     description: String
   }],
-  experience: [{
+  workExperience: [{
     company: String,
     role: String,
     duration: String,
@@ -59,3 +59,8 @@ const alumniSchema = new mongoose.Schema({
     default: false
   }
 }, { timestamps: true });
+
+
+const AlumniProfile = mongoose.model('AlumniProfile', alumniSchema);
+
+module.exports = AlumniProfile; 
