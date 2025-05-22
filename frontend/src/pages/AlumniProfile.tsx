@@ -4,25 +4,47 @@ import Footer from '@/components/Footer';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/api';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Briefcase, GraduationCap, Edit, MapPin, Mail, Phone, Globe, Linkedin as LinkedinIcon, Users as UsersIcon, Check, Plus, Trash } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { AlumniProfileData, AlumniUser } from '@/types/alumni';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+interface Education {
+  institution: string;
+  degree: string;
+  year: string;
+  description?: string;
+}
+
+interface WorkExperience {
+  company: string;
+  role: string;
+  duration: string;
+  description?: string;
+}
+
+interface AlumniProfileData {
+  graduationYear: string;
+  degree: string;
+  currentCompany: string;
+  currentRole: string;
+  location: string;
+  skills: string[];
+  education: Education[];
+  workExperience: WorkExperience[];
+}
+
 const AlumniProfile = () => {
-  const { user: authUser } = useAuth(); // Remove setUser from here
-  const [user, setUser] = useState(authUser as AlumniUser | null);
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState(authUser);
+  const [alumniData, setAlumniData] = useState<AlumniProfileData | null>(null);
   const navigate = useNavigate();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,46 +53,25 @@ const AlumniProfile = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
-  // Cast the authUser to AlumniUser type
-
-  const [formData, setFormData] = useState<AlumniProfileData>({
+  const [formData, setFormData] = useState({
+    // User fields
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    bio: user?.bio || '',
+    profilePhoto: user?.profilePhoto || '',
+    socialLinks: user?.socialLinks || { linkedin: '', website: '' },
+    
+    // Alumni fields
     graduationYear: '',
     degree: '',
     currentCompany: '',
     currentRole: '',
     location: '',
-    phone: '',
-    bio: '',
-    skills: [],
-    education: [],
-    experience: [],
-    socialLinks: {}
+    skills: [] as string[],
+    education: [] as Education[],
+    workExperience: [] as WorkExperience[],
   });
-
-  // Initialize form data when user loads
-  useEffect(() => {
-    if (user) {
-      setPreviewUrl(user.profilePhoto || '');
-      setFormData({
-        graduationYear: user.profile?.graduationYear || '',
-        degree: user.profile?.degree || '',
-        currentCompany: user.profile?.currentCompany || '',
-        currentRole: user.profile?.currentRole || '',
-        location: user.profile?.location || '',
-        phone: user.profile?.phone || '',
-        bio: user.profile?.bio || '',
-        skills: user.profile?.skills || [],
-        education: user.profile?.education || [],
-        experience: user.profile?.experience || [],
-        socialLinks: user.profile?.socialLinks || {}
-      });
-
-      // If profile is incomplete, automatically enter edit mode
-      if (!user.profileComplete) {
-        setIsEditMode(true);
-      }
-    }
-  }, [user]);
 
   // Error message helper function
   const getErrorMessage = (error: unknown): string => {
@@ -94,6 +95,7 @@ const AlumniProfile = () => {
     return 'An unknown error occurred';
   }
 
+  // Calculate profile completion percentage
   const calculateCompletion = (): number => {
     const requiredFields = ['graduationYear', 'degree', 'currentRole'];
     const completedFields = requiredFields.filter(field => {
@@ -110,36 +112,51 @@ const AlumniProfile = () => {
     
     try {
       const completionPercentage = calculateCompletion();
-      const updatedData = {
-        graduationYear: formData.graduationYear,
-        degree: formData.degree,
-        currentRole: formData.currentRole,
-        currentCompany: formData.currentCompany,
-        location: formData.location,
+      
+      // Split data into user and alumni parts
+      const alumniData = {
+        name: formData.name,
+        email: formData.email,
         phone: formData.phone,
         bio: formData.bio,
+        socialLinks: formData.socialLinks,
+        graduationYear: formData.graduationYear,
+        degree: formData.degree,
+        currentCompany: formData.currentCompany,
+        currentRole: formData.currentRole,
+        location: formData.location,
         skills: formData.skills,
         education: formData.education,
-        experience: formData.experience,
-        socialLinks: formData.socialLinks,
+        workExperience: formData.workExperience,
         profileComplete: completionPercentage === 100
-      };
+    };
 
-      const response = await api.put('/alumni/me', updatedData);
-      
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Update failed');
-      }
+    const response = await api.put('/alumni/me', alumniData);
+    
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Update failed');
+    }
 
-      // Update user context with new data
-      setUser({
-        ...user,
-        profile: {
-          ...user?.profile,
-          ...updatedData
-        },
-        profileComplete: completionPercentage === 100
-      });
+      // Refresh data
+      const [userResponse, alumniResponse] = await Promise.all([
+        api.get('/auth/me'),
+        api.get('/alumni/me')
+      ]);
+
+      // Update state
+      const updatedUser = {
+      ...userResponse.data.data,
+      ...alumniResponse.data.data,
+      socialLinks: alumniResponse.data.data?.socialLinks || 
+                 userResponse.data.data?.socialLinks || 
+                 { linkedin: '', website: '' }
+    };
+
+    setUser(updatedUser);
+    setAlumniData(updatedUser);
+    setFormData(updatedUser);
+    setPreviewUrl(updatedUser.profilePhoto || '');
+    localStorage.setItem('user', JSON.stringify(updatedUser));
       
       setIsEditMode(false);
       toast.success('Profile updated successfully!');
@@ -147,7 +164,6 @@ const AlumniProfile = () => {
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       console.error('Update error:', error);
-      setErrors({ form: errorMessage });
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -162,11 +178,11 @@ const AlumniProfile = () => {
     }
   };
 
-  const handleSocialLinkChange = (platform: keyof AlumniProfileData['socialLinks'], value: string) => {
+  const handleSocialLinkChange = (platform: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       socialLinks: {
-        ...(prev.socialLinks || {}),
+        ...(prev.socialLinks || { linkedin: '', website: '' }),
         [platform]: value
       }
     }));
@@ -177,6 +193,7 @@ const AlumniProfile = () => {
       const file = e.target.files[0];
       setSelectedFile(file);
       
+      // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string);
@@ -193,19 +210,28 @@ const AlumniProfile = () => {
       const formData = new FormData();
       formData.append('profilePhoto', selectedFile);
 
-      const response = await api.put('/alumni/me/photo', formData, {
+      const response = await api.put('/auth/upload-profile-photo', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
       if (response.data?.success) {
-        setUser({
-          ...user,
-          profilePhoto: response.data.data.user.profilePhoto
-        });
+        // Get fresh data after upload
+        const userResponse = await api.get('/auth/me');
+        const alumniResponse = await api.get('/alumni/me');
+
+        const updatedUser = {
+          ...userResponse.data.data?.user,
+          ...userResponse.data.data?.profile,
+          profileComplete: calculateCompletion() === 100
+        };
+
+        setUser(updatedUser);
+        setPreviewUrl(updatedUser.profilePhoto || '');
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
         toast.success('Profile photo updated successfully!');
-        setSelectedFile(null);
       }
     } catch (error) {
       toast.error('Failed to upload profile photo');
@@ -236,7 +262,7 @@ const AlumniProfile = () => {
     }));
   };
 
-  const handleEducationChange = (index: number, field: keyof AlumniProfileData['education'][0], value: string) => {
+  const handleEducationChange = (index: number, field: string, value: string) => {
     const updatedEducation = [...formData.education];
     updatedEducation[index] = {
       ...updatedEducation[index],
@@ -254,7 +280,7 @@ const AlumniProfile = () => {
   const handleAddExperience = () => {
     setFormData(prev => ({
       ...prev,
-      experience: [...prev.experience, {
+      workExperience: [...prev.workExperience, {
         company: '',
         role: '',
         duration: '',
@@ -263,23 +289,91 @@ const AlumniProfile = () => {
     }));
   };
 
-  const handleExperienceChange = (index: number, field: keyof AlumniProfileData['experience'][0], value: string) => {
-    const updatedExperience = [...formData.experience];
+  const handleExperienceChange = (index: number, field: string, value: string) => {
+    const updatedExperience = [...formData.workExperience];
     updatedExperience[index] = {
       ...updatedExperience[index],
       [field]: value
     };
-    setFormData(prev => ({ ...prev, experience: updatedExperience }));
+    setFormData(prev => ({ ...prev, workExperience: updatedExperience }));
   };
 
   const handleRemoveExperience = (index: number) => {
-    const updatedExperience = [...formData.experience];
+    const updatedExperience = [...formData.workExperience];
     updatedExperience.splice(index, 1);
-    setFormData(prev => ({ ...prev, experience: updatedExperience }));
+    setFormData(prev => ({ ...prev, workExperience: updatedExperience }));
   };
 
+  // Initialize form data when component mounts or user changes
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [userResponse, alumniResponse] = await Promise.all([
+          api.get('/auth/me'),
+          api.get('/alumni/me')
+        ]);
+
+        console.log("User response:", userResponse.data);
+        console.log("Alumni response:", alumniResponse.data);
+
+        const mergedData = {
+        ...userResponse.data.data,
+        ...alumniResponse.data.data,
+        socialLinks: alumniResponse.data.data?.socialLinks || 
+                   userResponse.data.data?.socialLinks || 
+                   { linkedin: '', website: '' }
+      };
+
+      setUser(mergedData);
+      setAlumniData(mergedData);
+      setFormData(mergedData);
+
+      // Set profile photo if available
+      if (mergedData?.profilePhoto) {
+        setPreviewUrl(mergedData.profilePhoto);
+      }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load profile data');
+      }
+    };
+
+    if (authUser?.role === 'alumni') {
+      fetchData();
+    }
+  }, [authUser]);
+
+  // Reset form data when exiting edit mode
+  useEffect(() => {
+    if (user && alumniData && !isEditMode) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        profilePhoto: user.profilePhoto || '',
+        socialLinks: user.socialLinks || { linkedin: '', website: '' },
+        graduationYear: alumniData.graduationYear || '',
+        degree: alumniData.degree || '',
+        currentCompany: alumniData.currentCompany || '',
+        currentRole: alumniData.currentRole || '',
+        location: alumniData.location || '',
+        skills: alumniData.skills || [],
+        education: alumniData.education || [],
+        workExperience: alumniData.workExperience || [],
+      });
+    }
+  }, [user, alumniData, isEditMode]);
+
+  // Automatically enter edit mode if profile is incomplete
+  useEffect(() => {
+    if (user && !user.profileComplete) {
+      setIsEditMode(true);
+    }
+  }, [user]);
+
   const ProfileForm = () => {
-    const socialLinks = formData.socialLinks || {};
+    const socialLinks = formData.socialLinks || { linkedin: '', website: '' };
 
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -485,7 +579,7 @@ const AlumniProfile = () => {
             </Button>
           </div>
           <div className="space-y-4">
-            {formData.experience.map((exp, index) => (
+            {formData.workExperience.map((exp, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`experience-company-${index}`}>Company</Label>
@@ -539,7 +633,7 @@ const AlumniProfile = () => {
               <Input
                 id="linkedin"
                 name="linkedin"
-                value={socialLinks.linkedin || ''}
+                value={socialLinks.linkedin}
                 onChange={(e) => handleSocialLinkChange('linkedin', e.target.value)}
                 placeholder="https://linkedin.com/in/yourprofile"
               />
@@ -549,7 +643,7 @@ const AlumniProfile = () => {
               <Input
                 id="website"
                 name="website"
-                value={socialLinks.website || ''}
+                value={socialLinks.website}
                 onChange={(e) => handleSocialLinkChange('website', e.target.value)}
                 placeholder="https://yourwebsite.com"
               />
@@ -568,7 +662,7 @@ const AlumniProfile = () => {
           </Button>
           <Button 
             type="submit" 
-            disabled={calculateCompletion() < 100 || isLoading}
+            disabled={isLoading}
           >
             {isLoading ? (
               <>
@@ -586,6 +680,13 @@ const AlumniProfile = () => {
   };
 
   const renderProfileView = () => {
+    if (!user || !alumniData) return null;
+
+    const skills = alumniData.skills || [];
+    const education = alumniData.education || [];
+    const workExperience = alumniData.workExperience || [];
+    const socialLinks = user.socialLinks || { linkedin: '', website: '' };
+
     return (
       <>
         <div className="mb-8 relative">
@@ -603,7 +704,7 @@ const AlumniProfile = () => {
                 {previewUrl ? (
                   <img 
                     src={previewUrl} 
-                    alt={user?.name} 
+                    alt={user.name} 
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -639,21 +740,21 @@ const AlumniProfile = () => {
               )}
             </div>
             <div className="sm:mb-4">
-              <h1 className="text-2xl md:text-3xl font-bold">{user?.name}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">{user.name}</h1>
               <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                {user?.profile?.degree && user?.profile?.graduationYear && (
+                {alumniData.degree && alumniData.graduationYear && (
                   <>
                     <span className="flex items-center gap-1">
                       <GraduationCap className="h-4 w-4" />
-                      {user.profile.degree}, Class of {user.profile.graduationYear}
+                      {alumniData.degree}, Class of {alumniData.graduationYear}
                     </span>
                     <span className="hidden sm:inline">•</span>
                   </>
                 )}
-                {user?.profile?.currentRole && user?.profile?.currentCompany && (
+                {alumniData.currentRole && alumniData.currentCompany && (
                   <span className="flex items-center gap-1">
                     <Briefcase className="h-4 w-4" />
-                    {user.profile.currentRole} at {user.profile.currentCompany}
+                    {alumniData.currentRole} at {alumniData.currentCompany}
                   </span>
                 )}
               </div>
@@ -666,7 +767,7 @@ const AlumniProfile = () => {
               asChild
             >
               <Link to="/alumni-portal">
-                <GraduationCap className="h-4 w-4" />
+                <Briefcase className="h-4 w-4" />
                 Dashboard
               </Link>
             </Button>
@@ -691,49 +792,49 @@ const AlumniProfile = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{user?.email || 'Not provided'}</p>
+                    <p className="font-medium">{user.email || 'Not provided'}</p>
                   </div>
                 </div>
               
-                {user?.profile?.phone && (
+                {user.phone && (
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                       <Phone className="h-4 w-4 text-primary" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
-                      <p className="font-medium">{user.profile.phone}</p>
+                      <p className="font-medium">{user.phone}</p>
                     </div>
                   </div>
                 )}
               
-                {user?.profile?.location && (
+                {alumniData.location && (
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                       <MapPin className="h-4 w-4 text-primary" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Location</p>
-                      <p className="font-medium">{user.profile.location}</p>
+                      <p className="font-medium">{alumniData.location}</p>
                     </div>
                   </div>
                 )}
               </div>
             
-              {(user?.profile?.socialLinks?.linkedin || user?.profile?.socialLinks?.website) && (
+              {(user.socialLinks?.linkedin || user.socialLinks?.website) && (
                 <div className="mt-6 pt-4 border-t">
                   <h4 className="text-sm font-semibold mb-3">Social Media</h4>
                   <div className="flex gap-2">
-                    {user.profile.socialLinks.linkedin && (
+                    {user.socialLinks.linkedin && (
                       <Button size="icon" variant="outline" asChild>
-                        <a href={user.profile.socialLinks.linkedin} target="_blank" rel="noopener noreferrer">
+                        <a href={user.socialLinks.linkedin} target="_blank" rel="noopener noreferrer">
                           <LinkedinIcon className="h-4 w-4" />
                         </a>
                       </Button>
                     )}
-                    {user.profile.socialLinks.website && (
+                    {user.socialLinks.website && (
                       <Button size="icon" variant="outline" asChild>
-                        <a href={user.profile.socialLinks.website} target="_blank" rel="noopener noreferrer">
+                        <a href={user.socialLinks.website} target="_blank" rel="noopener noreferrer">
                           <Globe className="h-4 w-4" />
                         </a>
                       </Button>
@@ -743,11 +844,11 @@ const AlumniProfile = () => {
               )}
             </Card>
           
-            {user?.profile?.skills?.length > 0 && (
+            {skills.length > 0 && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Skills & Expertise</h3>
                 <div className="flex flex-wrap gap-2">
-                  {user.profile.skills.map((skill) => (
+                  {skills.map((skill) => (
                     <Badge key={skill} variant="secondary">{skill}</Badge>
                   ))}
                 </div>
@@ -765,79 +866,74 @@ const AlumniProfile = () => {
           </div>
         
           <div className="lg:col-span-2 space-y-6">
-            {user?.profile?.bio && (
+            {user.bio && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">About Me</h3>
-                <p className="text-muted-foreground whitespace-pre-line">{user.profile.bio}</p>
+                <p className="text-muted-foreground whitespace-pre-line">{user.bio}</p>
               </Card>
             )}
           
-            <Tabs defaultValue="education" className="w-full">
-              <TabsList className="w-full mb-6 grid grid-cols-2 h-auto bg-muted/50 p-1 rounded-lg">
-                <TabsTrigger value="education" className="py-2 data-[state=active]:bg-white flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4" />
-                  <span>Education</span>
-                </TabsTrigger>
-                <TabsTrigger value="experience" className="py-2 data-[state=active]:bg-white flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  <span>Experience</span>
-                </TabsTrigger>
-              </TabsList>
-            
-              <TabsContent value="education" className="mt-0 space-y-4">
-                {user?.profile?.education?.length > 0 ? (
-                  user.profile.education.map((edu, index) => (
-                    <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative">
-                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
-                      <div className="mb-1">
-                        <h4 className="text-base font-semibold">{edu.degree}</h4>
-                        <p className="text-muted-foreground">{edu.institution}</p>
-                        <p className="text-sm text-muted-foreground">{edu.year}</p>
-                      </div>
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Education Background
+              </h3>
+              {education.length > 0 ? (
+                education.map((edu, index) => (
+                  <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative mb-4">
+                    <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
+                    <div className="mb-1">
+                      <h4 className="text-base font-semibold">{edu.degree}</h4>
+                      <p className="text-muted-foreground">{edu.institution}</p>
+                      <p className="text-sm text-muted-foreground">{edu.year}</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <p>No education information added yet.</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => setIsEditMode(true)}
-                    >
-                      Add Education
-                    </Button>
                   </div>
-                )}
-              </TabsContent>
-            
-              <TabsContent value="experience" className="mt-0 space-y-4">
-                {user?.profile?.experience?.length > 0 ? (
-                  user.profile.experience.map((exp, index) => (
-                    <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative">
-                      <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
-                      <div className="mb-1">
-                        <h4 className="text-base font-semibold">{exp.role}</h4>
-                        <p className="text-muted-foreground">{exp.company}</p>
-                        <p className="text-sm text-muted-foreground">{exp.duration}</p>
-                      </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p>No education information added yet.</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    Add Education
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                Work Experience
+              </h3>
+              {workExperience.length > 0 ? (
+                workExperience.map((exp, index) => (
+                  <div key={index} className="border-l-2 border-primary/30 pl-4 ml-2 relative mb-4">
+                    <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1"></div>
+                    <div className="mb-1">
+                      <h4 className="text-base font-semibold">{exp.role}</h4>
+                      <p className="text-muted-foreground">{exp.company}</p>
+                      <p className="text-sm text-muted-foreground">{exp.duration}</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <p>No work experience added yet.</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => setIsEditMode(true)}
-                    >
-                      Add Experience
-                    </Button>
                   </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p>No work experience added yet.</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    Add Experience
+                  </Button>
+                </div>
+              )}
+            </Card>
           </div>
         </div>
       </>
@@ -845,7 +941,15 @@ const AlumniProfile = () => {
   };
 
   const renderProfileContent = () => {
-    if (!user) {
+
+    console.log("Render conditions:", {
+      user: !!user,
+      alumniData: !!alumniData,
+      isEditMode,
+      profileComplete: user?.profileComplete
+    });
+
+    if (!user || !alumniData) {
       return (
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner />
@@ -853,26 +957,8 @@ const AlumniProfile = () => {
       );
     }
 
-    if (isEditMode) {
+    if (isEditMode || !user.profileComplete) {
       return <ProfileForm />;
-    }
-
-    if (!user.profileComplete) {
-      return (
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-4">Complete Your Profile</h2>
-          <p className="text-muted-foreground mb-6">
-            Your profile is {Math.round(calculateCompletion())}% complete. 
-            Please complete your profile to access all features.
-          </p>
-          <div className="w-full max-w-md mx-auto mb-6">
-            <Progress value={calculateCompletion()} className="h-2" />
-          </div>
-          <Button onClick={() => setIsEditMode(true)}>
-            Complete Profile Now
-          </Button>
-        </div>
-      );
     }
 
     return renderProfileView();

@@ -61,7 +61,7 @@ const NavigationBar = () => {
     password: '',
     graduationYear: '',
     degree: '',
-    currentJob: '',
+    currentPosition: '',
     company: ''
   });
 
@@ -245,7 +245,7 @@ const handleAlumniSubmit = async () => {
       profileData: {
         graduationYear: Number(alumniFormData.graduationYear),
         degree: alumniFormData.degree,
-        currentPosition: alumniFormData.currentJob,
+        currentPosition: alumniFormData.currentPosition,
         company: alumniFormData.company
       }
     };
@@ -256,7 +256,7 @@ const handleAlumniSubmit = async () => {
     localStorage.setItem('token', response.data.token);
 
     // Fetch the alumni profile after registration
-    const profileResponse = await api.get('/api/alumni/me');
+    const profileResponse = await api.get('/alumni/me');
     const userData = {
       ...response.data.user,
       profile: profileResponse.data
@@ -336,7 +336,7 @@ const handleAlumniSubmit = async () => {
         });
         profileData = profileResponse.data;
       } else if (response.data.user.role === 'alumni') {
-        const profileResponse = await api.get('/api/alumni/me', {
+        const profileResponse = await api.get('/alumni/me', {
           headers: { Authorization: `Bearer ${response.data.token}` }
         });
         profileData = profileResponse.data;
@@ -430,7 +430,7 @@ const handleAlumniSubmit = async () => {
       password: '',
       graduationYear: '',
       degree: '',
-      currentJob: '',
+      currentPosition: '',
       company: ''
     });
     setErrors({});

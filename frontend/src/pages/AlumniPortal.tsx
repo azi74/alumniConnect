@@ -161,7 +161,7 @@ const AlumniPortal = () => {
                   Welcome Back, {user.name}
                 </h1>
                 <p className="text-muted-foreground">
-                  {user.profile.degree} '{user.profile.graduationYear}' | {user.profile.currentRole} at {user.profile.currentCompany || 'your company'}
+                  {user.profile?.degree} '{user.profile?.graduationYear}' | {user.profile?.currentRole} at {user.profile?.currentCompany || 'your company'}
                 </p>
               </div>
               <div className="flex items-center gap-3">

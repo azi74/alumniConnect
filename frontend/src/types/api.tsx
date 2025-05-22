@@ -71,3 +71,27 @@ export interface Notification {
   read: boolean;
   createdAt: string;
 }
+
+export interface AlumniProfile {
+  graduationYear: string;
+  degree: string;
+  currentCompany: string;
+  currentRole: string;
+  location: string;
+  workExperience: WorkExperience[];
+  educationHistory: EducationHistory[];
+}
+
+export interface WorkExperience {
+  company: string;
+  role: string;
+  duration: string;
+  description?: string;
+}
+
+export interface EducationHistory {
+  institution: string;
+  degree: string;
+  year: string;
+  description?: string;
+}
