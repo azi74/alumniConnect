@@ -2,6 +2,8 @@ const Alumni = require('../models/AlumniProfile');
 const User = require('../models/User');
 const asyncHandler = require('express-async-handler');
 const ErrorResponse = require('../utils/errorResponse');
+const AlumniProfile = require('../models/AlumniProfile');
+const mongoose = require('mongoose');
 
 // @desc    Get alumni profile
 // @route   GET /api/alumni/me
@@ -9,6 +11,36 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
   try {
     const alumni = await Alumni.findOne({ user: req.user.id })
+      .populate('user', 'email role profilePhoto');
+    
+    if (!alumni) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alumni profile not found'
+      });
+    }
+
+    // Combine user and alumni data
+    const responseData = {
+      ...alumni.toObject(),
+      id: alumni.user._id,
+      email: alumni.user.email,
+      role: alumni.user.role,
+      profilePhoto: alumni.user.profilePhoto
+    };
+
+    res.status(200).json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    next(new ErrorResponse('Server error', 500));
+  }
+});
+
+exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
+  try {
+    const alumni = await AlumniProfile.findOne({ user: req.user.id })
       .populate('user', 'email role profilePhoto');
     
     if (!alumni) {
@@ -146,4 +178,51 @@ exports.uploadProfilePhoto = asyncHandler(async (req, res, next) => {
       alumni
     }
   });
+});
+
+
+exports.getAllAlumni = asyncHandler(async (req, res) => {
+  try {
+    const alumni = await AlumniProfile.find()
+      .select('-__v -createdAt -updatedAt')
+      .populate('user', 'name email profilePhoto');
+    
+    res.status(200).json({
+      success: true,
+      data: alumni
+    });
+  } catch (error) {
+    console.error('Error fetching alumni:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+exports.getAlumniProfile = asyncHandler(async (req, res) => {
+  try {
+    const alumni = await AlumniProfile.findById(req.params.id)
+      .populate('user', 'name email profilePhoto');
+    
+    if (!alumni) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alumni not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: alumni
+    });
+  } catch (error) {
+    console.error('Error fetching alumni profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
 });
