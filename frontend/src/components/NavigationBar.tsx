@@ -331,7 +331,7 @@ const handleAlumniSubmit = async () => {
       // 2. Fetch profile data based on role
       let profileData = {};
       if (response.data.user.role === 'student') {
-        const profileResponse = await api.get('/api/students/me', {
+        const profileResponse = await api.get('/students/me', {
           headers: { Authorization: `Bearer ${response.data.token}` }
         });
         profileData = profileResponse.data;
