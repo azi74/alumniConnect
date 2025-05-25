@@ -74,7 +74,10 @@ const AlumniPortal = () => {
         const [profileRes, notificationsRes, messagesRes] = await Promise.all([
           api.get('/alumni/me'),
           api.get('/notifications'),
-          api.get('/messages')
+          api.get('/messages').catch(err => {
+            console.error('Error fetching messages:', err);
+            return { data: { data: [] } }; // Return empty array if messages fail
+          })
         ]);
     
         setUser(profileRes.data);
@@ -199,7 +202,7 @@ const AlumniPortal = () => {
           
           {/* Main Tabs Navigation */}
           <Tabs defaultValue="dashboard" className="w-full">
-            <TabsList className="w-full mb-8 grid grid-cols-2 md:grid-cols-3 h-auto bg-muted/50 p-1 rounded-lg">
+            <TabsList className="w-full mb-8 grid grid-cols-2 md:grid-cols-2 h-auto bg-muted/50 p-1 rounded-lg">
               <TabsTrigger value="dashboard" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />
                 <span>Dashboard</span>
@@ -207,10 +210,6 @@ const AlumniPortal = () => {
               <TabsTrigger value="connections" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 <span>Connections</span>
-              </TabsTrigger>
-              <TabsTrigger value="mentorship" className="py-3 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                <span>Mentorship</span>
               </TabsTrigger>
             </TabsList>
 

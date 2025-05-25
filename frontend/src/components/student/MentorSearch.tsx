@@ -80,7 +80,7 @@ const MentorSearch = () => {
   };
 
   const handleStartChat = (alumniId: string) => {
-    navigate('/student-portal?tab=chat', { state: { alumniId } });
+    navigate(`/student-portal/chat/${alumniId}`);
   };
 
   if (loading) {

@@ -531,19 +531,21 @@ const handleAlumniSubmit = async () => {
             </div>
           ) : (
             <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsLoginModalOpen(true)}
-                className="button-transition button-hover focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
-              >
-                Login
-              </Button>
-              <Button 
-                onClick={() => setIsJoinModalOpen(true)}
-                className="button-transition button-hover focus-ring bg-phthalo hover:bg-phthalo-dark"
-              >
-                Join Now
-              </Button>
+              <div className="flex items-center gap-2"> {/* Add this wrapper */}
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="button-transition button-hover focus-ring border-phthalo-medium/50 text-phthalo hover:text-phthalo-dark"
+                >
+                  Login
+                </Button>
+                <Button 
+                  onClick={() => setIsJoinModalOpen(true)}
+                  className="button-transition button-hover focus-ring bg-phthalo hover:bg-phthalo-dark"
+                >
+                  Join Now
+                </Button>
+              </div>
             </>
           )}
 
@@ -581,7 +583,7 @@ const handleAlumniSubmit = async () => {
               >
                 <Calendar className="h-4 w-4" /> Events
               </Link>
-              <div className="pt-2 flex flex-col space-y-3">
+              <div className="pt-2 flex flex-col gap-1">
                 {user ? (
                   <>
                     <div className="flex items-center space-x-3 px-2">

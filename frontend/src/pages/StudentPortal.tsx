@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import NavigationBar from '@/components/NavigationBar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import ConnectedMentors from '@/components/student/ConnectedMentors';
 import MentorSearch from '@/components/student/MentorSearch';
 import MentorChat from '@/components/student/MentorChat';
 import StudentDashboard from '@/components/student/Students-Dashboard';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface StudentProfile {
@@ -21,20 +22,31 @@ interface StudentProfile {
   program?: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  role: 'student' | 'alumni' | 'admin';
-  profile?: StudentProfile;
-}
-
 const StudentPortal = () => {
   const { user, loading, isInitialized } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams();
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [user, isInitialized, navigate]);
+
+  // Handle tab state from URL and params
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    
+    // If we have an alumniId in params, force chat tab
+    if (params.alumniId) {
+      setActiveTab('chat');
+    } 
+    // Otherwise use the tab from query params if valid
+    else if (tab && ['dashboard', 'search', 'chat'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search, params.alumniId]);
 
   if (loading || !isInitialized || !user) {
     return (
@@ -73,7 +85,13 @@ const StudentPortal = () => {
                   <span className="hidden sm:inline">Notifications</span>
                   <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">2</span>
                 </Button>
-                <Button className="flex items-center gap-2 button-transition button-hover focus-ring">
+                <Button 
+                  className="flex items-center gap-2 button-transition button-hover focus-ring"
+                  onClick={() => {
+                    setActiveTab('chat');
+                    navigate('/student-portal?tab=chat');
+                  }}
+                >
                   <MessageCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Messages</span>
                 </Button>
@@ -92,7 +110,17 @@ const StudentPortal = () => {
           </div>
           
           {/* Main Tabs Navigation */}
-          <Tabs defaultValue="dashboard" className="w-full">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(value) => {
+              setActiveTab(value);
+              // Only update URL if not already on chat with alumniId
+              if (!params.alumniId || value !== 'chat') {
+                navigate(`/student-portal?tab=${value}`);
+              }
+            }}
+            className="w-full"
+          >
             <TabsList className="w-full mb-8 grid grid-cols-2 md:grid-cols-3 h-auto bg-muted/50 p-1 rounded-lg">
               <TabsTrigger 
                 value="dashboard" 
@@ -121,14 +149,6 @@ const StudentPortal = () => {
               <StudentDashboard />
             </TabsContent>
 
-            <TabsContent value="mentors" className="mt-0">
-              <div className="grid gap-6">
-                <div className="glass-card p-6 rounded-xl">
-                  <ConnectedMentors />
-                </div>
-              </div>
-            </TabsContent>
-            
             <TabsContent value="search" className="mt-0">
               <div className="glass-card p-6 rounded-xl">
                 <MentorSearch />
@@ -137,7 +157,7 @@ const StudentPortal = () => {
             
             <TabsContent value="chat" className="mt-0">
               <div className="glass-card p-6 rounded-xl">
-                <MentorChat />
+                <MentorChat alumniId={params.alumniId} />
               </div>
             </TabsContent>
           </Tabs>

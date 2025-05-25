@@ -3,12 +3,7 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  MessageCircle, 
-  ArrowUp, 
-  User,
-  ArrowLeft
-} from 'lucide-react';
+import { MessageCircle, ArrowUp, User, ArrowLeft } from 'lucide-react';
 import api from '@/api';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -29,8 +24,12 @@ interface Alumni {
   currentCompany: string;
 }
 
-const MentorChat = () => {
-  const { alumniId } = useParams();
+interface MentorChatProps {
+  alumniId?: string;
+}
+
+const MentorChat = ({ alumniId: propAlumniId }: MentorChatProps) => {
+  const { alumniId: paramAlumniId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [alumnus, setAlumnus] = useState<Alumni | null>(null);
@@ -39,41 +38,47 @@ const MentorChat = () => {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const activeAlumniId = propAlumniId || paramAlumniId;
+
   useEffect(() => {
     const fetchData = async () => {
+      if (!activeAlumniId) {
+        navigate('/student-portal?tab=chat');
+        return;
+      }
+
       try {
         // Fetch alumni details
-        const alumniResponse = await api.get(`/alumni/${alumniId}`);
+        const alumniResponse = await api.get(`/alumni/${activeAlumniId}`);
         setAlumnus(alumniResponse.data.data);
         
         // Fetch conversation messages
-        const messagesResponse = await api.get(`/messages/${alumniId}`);
+        const messagesResponse = await api.get(`/messages/${activeAlumniId}`);
         setMessages(messagesResponse.data.data);
       } catch (error) {
         console.error('Failed to fetch chat data:', error);
+        navigate('/student-portal?tab=chat');
       } finally {
         setLoading(false);
       }
     };
 
-    if (alumniId) {
-      fetchData();
-    }
-  }, [alumniId]);
+    fetchData();
+  }, [activeAlumniId, navigate]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !alumniId || !user) return;
+    if (!input.trim() || !activeAlumniId || !user) return;
     
     const tempId = Date.now().toString();
     
     try {
       const newMessage = {
         content: input,
-        receiver: alumniId
+        receiver: activeAlumniId
       };
       
       // Optimistically update UI
@@ -81,7 +86,7 @@ const MentorChat = () => {
         _id: tempId,
         content: input,
         sender: user.id,
-        receiver: alumniId,
+        receiver: activeAlumniId,
         createdAt: new Date().toISOString(),
         read: false
       }]);

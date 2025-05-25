@@ -47,6 +47,11 @@ const App = () => (
               <StudentPortal />
             </ProtectedRoute>
           } />
+          <Route path="/student-portal/chat/:alumniId" element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentPortal />
+            </ProtectedRoute>
+          } />
           <Route path="/student-profile" element={
             <ErrorBoundary fallback={<div>Error in ProfileForm</div>}>
               <ProtectedRoute allowedRoles={['student']}> {/* Add allowedRoles */}

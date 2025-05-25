@@ -1,60 +1,99 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@/types/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, UserPlus } from 'lucide-react';
+import { Search, Filter, UserPlus, MessageCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import StudentProfileModal from '@/components/StudentProfileModal';
+import ChatModal from '@/components/ChatModal';
+import api from '@/api';
 
 type Props = {
   user: User;
 };
 
-const connections = [
-  {
-    name: "Emily Johnson",
-    role: "Marketing Manager at Apple",
-    graduationYear: "2021",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 8
-  },
-  {
-    name: "David Chen",
-    role: "Software Engineer at Google",
-    graduationYear: "2020",
-    image: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 15
-  },
-  {
-    name: "Michael Thompson",
-    role: "Data Scientist at Microsoft",
-    graduationYear: "2019",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 6
-  },
-  {
-    name: "Jessica Williams",
-    role: "UX Designer at Adobe",
-    graduationYear: "2022",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 3
-  },
-  {
-    name: "Robert Garcia",
-    role: "Product Manager at Amazon",
-    graduationYear: "2018",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 10
-  },
-  {
-    name: "Sara Miller",
-    role: "Finance Analyst at JPMorgan",
-    graduationYear: "2021",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1000&auto=format&fit=crop&ixlib=rb-4.0.3",
-    mutual: 4
-  }
-];
+interface Connection {
+  id: string;
+  name: string;
+  role: string;
+  graduationYear: string;
+  image: string;
+  mutual: number;
+  registrationNumber?: string;
+  program?: string;
+  year?: string;
+  section?: string;
+  email?: string;
+  phone?: string;
+  bio?: string;
+  interests?: string[];
+}
 
-const AlumniConnections: React.FC<Props> = ({user}) => {
+const AlumniConnections: React.FC<Props> = ({ user }) => {
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Connection | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [stats, setStats] = useState({
+    totalConnections: 0,
+    pendingRequests: 0,
+    newThisMonth: 0,
+    messagesExchanged: 0
+  });
+
+  useEffect(() => {
+    const fetchConnections = async () => {
+      try {
+        setLoading(true);
+        // Fetch connections who have messaged the alumni
+        const response = await api.get('/api/messages/connections');
+        setConnections(response.data.data || []);
+
+        // Fetch stats
+        const statsResponse = await api.get('/api/messages/stats');
+        setStats(statsResponse.data.data || {
+          totalConnections: 0,
+          pendingRequests: 0,
+          newThisMonth: 0,
+          messagesExchanged: 0
+        });
+      } catch (error) {
+        console.error('Error fetching connections:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConnections();
+  }, [user]);
+
+  const filteredConnections = connections.filter(connection =>
+    connection.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    connection.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    connection.program?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleViewProfile = (student: Connection) => {
+    setSelectedStudent(student);
+    setShowProfileModal(true);
+  };
+
+  const handleStartChat = (student: Connection) => {
+    setSelectedStudent(student);
+    setShowChatModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Search and Filter Bar */}
@@ -65,6 +104,8 @@ const AlumniConnections: React.FC<Props> = ({user}) => {
             <Input 
               placeholder="Search connections..." 
               className="pl-9 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex gap-3">
@@ -79,10 +120,10 @@ const AlumniConnections: React.FC<Props> = ({user}) => {
       {/* Stats Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Connections", value: "43" },
-          { label: "Pending Requests", value: "5" },
-          { label: "New This Month", value: "12" },
-          { label: "Messages Exchanged", value: "89" }
+          { label: "Total Connections", value: stats.totalConnections.toString() },
+          { label: "Pending Requests", value: stats.pendingRequests.toString() },
+          { label: "New This Month", value: stats.newThisMonth.toString() },
+          { label: "Messages Exchanged", value: stats.messagesExchanged.toString() }
         ].map((stat, index) => (
           <Card key={index} className="p-4 text-center glass-card">
             <p className="text-sm text-muted-foreground">{stat.label}</p>
@@ -93,7 +134,7 @@ const AlumniConnections: React.FC<Props> = ({user}) => {
 
       {/* Connections Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {connections.map((connection, index) => (
+        {filteredConnections.map((connection, index) => (
           <Card key={index} className="overflow-hidden glass-card transition-all duration-300 hover:shadow-medium hover:-translate-y-1">
             <div className="p-6">
               <div className="flex items-center gap-4 mb-4">
@@ -105,7 +146,9 @@ const AlumniConnections: React.FC<Props> = ({user}) => {
                 <div>
                   <h3 className="font-semibold">{connection.name}</h3>
                   <p className="text-sm text-muted-foreground">{connection.role}</p>
-                  <p className="text-xs text-muted-foreground">Class of {connection.graduationYear}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {connection.program} - {connection.year} Year
+                  </p>
                 </div>
               </div>
               
@@ -116,24 +159,69 @@ const AlumniConnections: React.FC<Props> = ({user}) => {
               </div>
               
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 text-sm h-9">Message</Button>
-                <Button className="flex-1 text-sm h-9">View Profile</Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 text-sm h-9"
+                  onClick={() => handleStartChat(connection)}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Message
+                </Button>
+                <Button 
+                  className="flex-1 text-sm h-9"
+                  onClick={() => handleViewProfile(connection)}
+                >
+                  View Profile
+                </Button>
               </div>
             </div>
           </Card>
         ))}
       </div>
       
-      {/* Pagination */}
-      <div className="flex justify-center mt-8">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>Previous</Button>
-          <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">1</Button>
-          <Button variant="outline" size="sm">2</Button>
-          <Button variant="outline" size="sm">3</Button>
-          <Button variant="outline" size="sm">Next</Button>
+      {/* Empty State */}
+      {filteredConnections.length === 0 && (
+        <div className="text-center py-12">
+          <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <UserPlus className="h-10 w-10 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">No connections yet</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            You haven't exchanged messages with any students yet. Start a conversation to see them here.
+          </p>
         </div>
-      </div>
+      )}
+
+      {/* Student Profile Modal */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Student Profile</DialogTitle>
+          </DialogHeader>
+          {selectedStudent && (
+            <StudentProfileModal 
+              student={selectedStudent} 
+              onClose={() => setShowProfileModal(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Modal */}
+      <Dialog open={showChatModal} onOpenChange={setShowChatModal}>
+        <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Chat with {selectedStudent?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedStudent && (
+            <ChatModal 
+              recipient={selectedStudent}
+              currentUser={user}
+              onClose={() => setShowChatModal(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
