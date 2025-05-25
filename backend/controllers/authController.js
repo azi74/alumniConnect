@@ -218,17 +218,15 @@ const loginUser = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    token, // Add this wrapper
+    token,
     user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role.toLowerCase(),
-        ...(user.profilePhoto && { profilePhoto: user.profilePhoto }),
-        // Include role-specific fields if needed
-      }
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role.toLowerCase(),
+      ...(user.profilePhoto && { profilePhoto: user.profilePhoto }),
     }
-  );
+  });
 });
 
 // @desc    Get current user data

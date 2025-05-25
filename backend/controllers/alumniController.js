@@ -8,25 +8,29 @@ const mongoose = require('mongoose');
 // @desc    Get alumni profile
 // @route   GET /api/alumni/me
 // @access  Private
-exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
+exports.getMyProfile = asyncHandler(async (req, res, next) => {
   try {
-    const alumni = await Alumni.findOne({ user: req.user.id })
-      .populate('user', 'email role profilePhoto');
-    
-    if (!alumni) {
-      return res.status(404).json({
-        success: false,
-        message: 'Alumni profile not found'
-      });
+    const [user, profile] = await Promise.all([
+      User.findById(req.user.id)
+        .select('-password -__v -resetPasswordToken -resetPasswordExpire')
+        .lean(),
+      AlumniProfile.findOne({ user: req.user.id })
+        .select('-__v -createdAt -updatedAt')
+        .lean()
+    ]);
+
+    if (!user) {
+      return next(new ErrorResponse('User not found', 404));
     }
 
-    // Combine user and alumni data
+    if (!profile) {
+      return next(new ErrorResponse('Alumni profile not found', 404));
+    }
+
+    // Combine user and profile data
     const responseData = {
-      ...alumni.toObject(),
-      id: alumni.user._id,
-      email: alumni.user.email,
-      role: alumni.user.role,
-      profilePhoto: alumni.user.profilePhoto
+      ...user,
+      ...profile
     };
 
     res.status(200).json({
@@ -34,36 +38,7 @@ exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
       data: responseData
     });
   } catch (error) {
-    next(new ErrorResponse('Server error', 500));
-  }
-});
-
-exports.getAlumniProfile = asyncHandler(async (req, res, next) => {
-  try {
-    const alumni = await AlumniProfile.findOne({ user: req.user.id })
-      .populate('user', 'email role profilePhoto');
-    
-    if (!alumni) {
-      return res.status(404).json({
-        success: false,
-        message: 'Alumni profile not found'
-      });
-    }
-
-    // Combine user and alumni data
-    const responseData = {
-      ...alumni.toObject(),
-      id: alumni.user._id,
-      email: alumni.user.email,
-      role: alumni.user.role,
-      profilePhoto: alumni.user.profilePhoto
-    };
-
-    res.status(200).json({
-      success: true,
-      data: responseData
-    });
-  } catch (error) {
+    console.error('Get alumni profile error:', error);
     next(new ErrorResponse('Server error', 500));
   }
 });
