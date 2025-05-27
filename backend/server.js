@@ -19,7 +19,11 @@ const app = express();
 connectDB();
 
 // ====== Global Middleware ======
-app.use(cors());
+app.use(cors({
+  origin: 'https://your-frontend.vercel.app',
+  credentials: true,
+}));
+
 app.use(express.json());
 
 // ====== Rate Limiting for Auth Routes ======
