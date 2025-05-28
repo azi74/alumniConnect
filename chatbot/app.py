@@ -29,6 +29,12 @@ bot = ChatBot("chatbot",
 def home():
     return render_template("index.html")
 
+@app.route("/get")  # Add this endpoint for browser testing
+def get_bot_response_get():
+    user_text = request.args.get('msg')
+    response = str(bot.get_response(user_text))
+    return jsonify({"response": response})
+
 @app.route("/api/chat", methods=["POST"])
 
 def get_bot_response():
