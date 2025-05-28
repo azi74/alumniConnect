@@ -93,7 +93,7 @@ const AIChat = () => {
 
   const getBotResponse = async (query: string): Promise<string> => {
     try {
-      const response = await axios.post('http://localhost:5001/api/chat', 
+      const response = await axios.post('https://chatbot-4tua.onrender.com/api/chat', 
         { message: query },
         { headers: { 'Content-Type' : 'application/json'}}
       );
