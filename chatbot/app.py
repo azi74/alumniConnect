@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:8080"],  # React dev server
+        "origins": ["https://alumni-connect-gamma.vercel.app"],  # React dev server
         "methods": ["GET", "POST"],
         "allow_headers": ["Content-Type"]
     }
