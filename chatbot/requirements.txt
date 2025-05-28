@@ -1,10 +1,11 @@
-Flask==2.3.2
-flask-cors==4.0.0
-gunicorn==21.2.0
+Flask==2.0.3  # Downgraded for compatibility
+flask-cors==3.0.10
+gunicorn==20.1.0
 chatterbot==1.0.5
 chatterbot-corpus==1.2.0
-spacy==3.7.2
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.0/en_core_web_sm-3.7.0-py3-none-any.whl
-nltk==3.8.1
-python-dateutil==2.7.5  # Changed from 2.8.2 to meet chatterbot's requirements
+spacy==2.3.7  # Last 2.x version compatible with chatterbot
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.3.1/en_core_web_sm-2.3.1.tar.gz
+nltk==3.6.7
+python-dateutil==2.7.5
 sqlalchemy==1.4.48
+pymongo==3.12.3
