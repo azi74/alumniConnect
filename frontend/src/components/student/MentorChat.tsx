@@ -8,12 +8,24 @@ import api from '@/api';
 import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
-  _id: string;
+  _id: {
+    $oid: string;
+  };
+  sender: {
+    $oid: string;
+  };
+  receiver: {
+    $oid: string;
+  };
   content: string;
-  sender: string;
-  receiver: string;
-  createdAt: string;
   read: boolean;
+  createdAt: {
+    $date: string;
+  };
+  updatedAt: {
+    $date: string;
+  };
+  __v: number;
 }
 
 interface Alumni {
@@ -40,28 +52,50 @@ const MentorChat = ({ alumniId: propAlumniId }: MentorChatProps) => {
 
   const activeAlumniId = propAlumniId || paramAlumniId;
 
+  // Helper function to compare MongoDB IDs
+  const isSameId = (id1: { $oid: string } | string, id2: { $oid: string } | string) => {
+    const str1 = typeof id1 === 'string' ? id1 : id1.$oid;
+    const str2 = typeof id2 === 'string' ? id2 : id2.$oid;
+    return str1 === str2;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
-      if (!activeAlumniId) {
-        navigate('/student-portal?tab=chat');
-        return;
-      }
+        if (!activeAlumniId) {
+          navigate('/student-portal?tab=chat');
+          return;
+        }
 
-      try {
-        // Fetch alumni details
-        const alumniResponse = await api.get(`/alumni/${activeAlumniId}`);
-        setAlumnus(alumniResponse.data.data);
-        
-        // Fetch conversation messages
-        const messagesResponse = await api.get(`/messages/${activeAlumniId}`);
-        setMessages(messagesResponse.data.data);
-      } catch (error) {
-        console.error('Failed to fetch chat data:', error);
-        navigate('/student-portal?tab=chat');
-      } finally {
-        setLoading(false);
-      }
-    };
+        try {
+          setLoading(true);
+          
+          // Fetch alumni details
+          const alumniResponse = await api.get(`/alumni/${activeAlumniId}`);
+          setAlumnus(alumniResponse.data.data);
+          
+          // Fetch conversation messages
+          const messagesResponse = await api.get(`/messages/${activeAlumniId}`);
+          
+          // Transform messages to ensure consistent format
+          const transformedMessages = messagesResponse.data.data.map((msg: any) => ({
+            _id: msg._id ? { $oid: msg._id.toString() } : { $oid: '' },
+            sender: msg.sender ? { $oid: msg.sender.toString() } : { $oid: '' },
+            receiver: msg.receiver ? { $oid: msg.receiver.toString() } : { $oid: '' },
+            content: msg.content || '',
+            read: msg.read || false,
+            createdAt: msg.createdAt ? { $date: new Date(msg.createdAt).toISOString() } : { $date: new Date().toISOString() },
+            updatedAt: msg.updatedAt ? { $date: new Date(msg.updatedAt).toISOString() } : { $date: new Date().toISOString() },
+            __v: msg.__v || 0
+          }));
+          
+          setMessages(transformedMessages);
+        } catch (error) {
+          console.error('Failed to fetch chat data:', error);
+          // Optionally show error to user
+        } finally {
+          setLoading(false);
+        }
+      };
 
     fetchData();
   }, [activeAlumniId, navigate]);
@@ -83,12 +117,14 @@ const MentorChat = ({ alumniId: propAlumniId }: MentorChatProps) => {
       
       // Optimistically update UI
       setMessages(prev => [...prev, {
-        _id: tempId,
+        _id: { $oid: tempId },
         content: input,
-        sender: user.id,
-        receiver: activeAlumniId,
-        createdAt: new Date().toISOString(),
-        read: false
+        sender: { $oid: user.id },
+        receiver: { $oid: activeAlumniId },
+        createdAt: { $date: new Date().toISOString() },
+        updatedAt: { $date: new Date().toISOString() },
+        read: false,
+        __v: 0
       }]);
       setInput('');
       
@@ -97,12 +133,12 @@ const MentorChat = ({ alumniId: propAlumniId }: MentorChatProps) => {
       
       // Replace temporary message with actual message from server
       setMessages(prev => prev.map(msg => 
-        msg._id === tempId ? response.data.data : msg
+        msg._id.$oid === tempId ? response.data.data : msg
       ));
     } catch (error) {
       console.error('Failed to send message:', error);
       // Remove optimistic update if failed
-      setMessages(prev => prev.filter(msg => msg._id !== tempId));
+      setMessages(prev => prev.filter(msg => msg._id.$oid !== tempId));
     }
   };
 
@@ -158,56 +194,64 @@ const MentorChat = ({ alumniId: propAlumniId }: MentorChatProps) => {
           
           {/* Messages area */}
           <div className="flex-grow overflow-y-auto p-4 bg-slate-50/50 space-y-4">
-            {messages.map(message => (
-              <div 
-                key={message._id}
-                className={`flex ${message.sender === user?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
-              >
-                {message.sender !== user?.id && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1">
-                    {alumnus.profilePhoto ? (
-                      <img 
-                        src={alumnus.profilePhoto} 
-                        alt={alumnus.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <User className="h-4 w-4 text-gray-500" />
-                      </div>
-                    )}
-                  </div>
-                )}
-                
+            {messages.map(message => {
+              const isCurrentUser = isSameId(message.sender, user?.id || '');
+              const isAlumni = !isCurrentUser;
+              
+              return (
                 <div 
-                  className={`max-w-[80%] p-3 rounded-lg flex flex-col ${
-                    message.sender === user?.id 
-                      ? 'bg-primary text-white rounded-tr-none' 
-                      : 'bg-white border border-slate-200 rounded-tl-none'
-                  }`}
+                  key={message._id.$oid}
+                  className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} animate-fade-in`}
                 >
-                  <span className="text-sm">{message.content}</span>
-                  <span 
-                    className={`text-xs ${
-                      message.sender === user?.id 
-                        ? 'text-primary-foreground/70' 
-                        : 'text-muted-foreground'
-                    } self-end mt-1`}
+                  {isAlumni && (
+                    <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 mt-1">
+                      {alumnus.profilePhoto ? (
+                        <img 
+                          src={alumnus.profilePhoto} 
+                          alt={alumnus.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <User className="h-4 w-4 text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div 
+                    className={`max-w-[80%] p-3 rounded-lg flex flex-col ${
+                      isCurrentUser
+                        ? 'bg-primary text-white rounded-tr-none' 
+                        : 'bg-white border border-slate-200 rounded-tl-none'
+                    }`}
                   >
-                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {!message.read && message.sender === user?.id && (
-                      <span className="ml-1">✓</span>
-                    )}
-                  </span>
-                </div>
-                
-                {message.sender === user?.id && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden ml-2 flex-shrink-0 mt-1 bg-primary flex items-center justify-center">
-                    <User className="h-4 w-4 text-white" />
+                    <span className="text-sm">{message.content}</span>
+                    <span 
+                      className={`text-xs ${
+                        isCurrentUser
+                          ? 'text-primary-foreground/70' 
+                          : 'text-muted-foreground'
+                      } self-end mt-1`}
+                    >
+                      {new Date(message.createdAt.$date).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                      {!message.read && isCurrentUser && (
+                        <span className="ml-1">✓</span>
+                      )}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+                  
+                  {isCurrentUser && (
+                    <div className="w-8 h-8 rounded-full overflow-hidden ml-2 flex-shrink-0 mt-1 bg-primary flex items-center justify-center">
+                      <User className="h-4 w-4 text-white" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
           

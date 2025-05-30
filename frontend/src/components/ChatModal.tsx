@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, Connection } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft, MessageCircle } from 'lucide-react'; // Fixed import
 import api from '@/api';
 
 interface Props {
@@ -30,7 +30,8 @@ const ChatModal: React.FC<Props> = ({ recipient, currentUser, onClose }) => {
     const fetchMessages = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/api/messages/${recipient.id}`);
+        // Updated API endpoint to match your backend
+        const response = await api.get(`/messages/${recipient.id}`);
         setMessages(response.data.data || []);
       } catch (error) {
         console.error('Error fetching messages:', error);
@@ -54,15 +55,20 @@ const ChatModal: React.FC<Props> = ({ recipient, currentUser, onClose }) => {
     if (!newMessage.trim()) return;
 
     try {
-      const response = await api.post('/api/messages', {
-        recipientId: recipient.id,
+      const response = await api.post('/messages', {
+        receiver: recipient.id,  // Changed from recipientId to receiver
         content: newMessage
       });
 
-      setMessages(prev => [...prev, response.data.data]);
-      setNewMessage('');
+      if (response.data.success) {
+        setMessages(prev => [...prev, response.data.data]);
+        setNewMessage('');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      if (error.response) {
+        console.error('Server response:', error.response.data);
+      }
     }
   };
 

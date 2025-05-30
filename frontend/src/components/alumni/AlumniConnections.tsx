@@ -28,8 +28,18 @@ interface Connection {
   phone?: string;
   bio?: string;
   interests?: string[];
+  address?: string;
+  gpa?: string;
+  achievements?: Array<{
+    title: string;
+    description?: string;
+    date?: string;
+  }>;
+  socialLinks?: {
+    linkedin?: string;
+    website?: string;
+  };
 }
-
 const AlumniConnections: React.FC<Props> = ({ user }) => {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +58,31 @@ const AlumniConnections: React.FC<Props> = ({ user }) => {
     const fetchConnections = async () => {
       try {
         setLoading(true);
-        // Fetch connections who have messaged the alumni
-        const response = await api.get('/api/messages/connections');
-        setConnections(response.data.data || []);
+        const response = await api.get('/messages/conversations');
+        const conversations = response.data.data || [];
 
-        // Fetch stats
-        const statsResponse = await api.get('/api/messages/stats');
-        setStats(statsResponse.data.data || {
-          totalConnections: 0,
+        // Properly transform the data
+        const connections = conversations.map(convo => {
+          // Check both possible locations for user data
+          const userData = convo.user || convo.lastMessage?.user?.[0];
+          
+          return {
+            id: convo._id || convo.lastMessage?._id,
+            name: userData?.name || 'Loading...', // Better fallback
+            role: 'Student',
+            graduationYear: '',
+            image: userData?.profilePhoto || '/default-user.png',
+            mutual: 0,
+            program: userData?.program || '',
+            year: userData?.year || '',
+            // Add other fields as needed
+            ...(userData || {}) // Spread remaining user data if available
+          };
+        });
+
+        setConnections(connections);
+        setStats({
+          totalConnections: connections.length,
           pendingRequests: 0,
           newThisMonth: 0,
           messagesExchanged: 0
@@ -76,11 +103,30 @@ const AlumniConnections: React.FC<Props> = ({ user }) => {
     connection.program?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleViewProfile = (student: Connection) => {
-    setSelectedStudent(student);
-    setShowProfileModal(true);
-  };
+  const handleViewProfile = async (student: Connection) => {
+    try {
+      setLoading(true);
+      // First try to fetch complete student profile
+      const response = await api.get(`/students/${student.id}`);
+      
+      // Transform the data to match your Connection interface
+      const completeProfile = {
+        ...student, // keep the basic info
+        ...response.data.data, // add the detailed info
+        image: response.data.data.image || student.image
+      };
 
+      setSelectedStudent(completeProfile);
+      setShowProfileModal(true);
+    } catch (error) {
+      console.error('Error fetching student profile:', error);
+      // Fallback to basic info if detailed fetch fails
+      setSelectedStudent(student);
+      setShowProfileModal(true);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleStartChat = (student: Connection) => {
     setSelectedStudent(student);
     setShowChatModal(true);
