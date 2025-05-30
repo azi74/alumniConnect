@@ -4,7 +4,8 @@ const { protect } = require('../middleware/authMiddleware');
 const {
   getMyProfile,
   updateProfile,
-  uploadProfilePhoto
+  uploadProfilePhoto,
+  getStudentProfile
 } = require('../controllers/studentController');
 const upload = require('../utils/fileUpload');
 
@@ -14,5 +15,6 @@ router.route('/me')
   .put(protect, updateProfile);
 
 router.put('/me/photo', protect, upload.single('profilePhoto'), uploadProfilePhoto);
+router.get('/:id', protect, getStudentProfile);
 
 module.exports = router;

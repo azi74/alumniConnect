@@ -2,6 +2,7 @@
 const StudentProfile = require('../models/StudentProfile');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const Student = require('../models/StudentProfile');
 
 // @desc    Get student profile
 exports.getMyProfile = asyncHandler(async (req, res) => {
@@ -131,4 +132,38 @@ exports.uploadProfilePhoto = asyncHandler(async (req, res) => {
       student
     }
   });
+});
+
+
+exports.getStudentProfile = asyncHandler(async (req, res) => {
+  try {
+    const student = await Student.findOne({ user: req.params.id })
+      .populate('user', 'name email profilePhoto')
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        error: 'Student not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...student,
+        id: student.user._id,
+        name: student.user.name,
+        email: student.user.email,
+        image: student.user.profilePhoto
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student profile:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error',
+      message: error.message
+    });
+  }
 });

@@ -20,7 +20,8 @@ connectDB();
 
 // ====== Global Middleware ======
 app.use(cors({
-  origin: 'https://alumni-connect-gamma.vercel.app',
+  // origin: 'https://alumni-connect-gamma.vercel.app',
+  origin: 'http://localhost:8080',
   credentials: true,
 }));
 

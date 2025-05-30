@@ -7,10 +7,11 @@ const {
   getMyConversations
 } = require('../controllers/messageController');
 
-router.route('/')
-  .get(protect, getMyConversations)
-  .post(protect, sendMessage);
+router.post('/', protect, sendMessage);
+router.get('/conversations', protect, getMyConversations);
+// router.get('/:userId', protect, getConversation);
 
 router.get('/:alumniId', protect, getConversation);
+
 
 module.exports = router;
